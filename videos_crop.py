@@ -10,7 +10,8 @@ from time import time as timer
 
 import ffmpeg
 from tqdm import tqdm
-
+from subprocess import Popen, PIPE
+from decimal import Decimal, DivisionByZero
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--input_dir', type=str, required=True,
@@ -24,12 +25,34 @@ parser.add_argument('--num_workers', type=int, default=8,
 args = parser.parse_args()
 
 
-def get_h_w(filepath):
+def get_h_w_fps(filepath):
     probe = ffmpeg.probe(filepath)
     video_stream = next((stream for stream in probe['streams'] if stream['codec_type'] == 'video'), None)
     height = int(video_stream['height'])
     width = int(video_stream['width'])
-    return height, width
+    
+    # Extract avg_frame_rate and convert to Decimal FPS
+    avg_frame_rate = video_stream['avg_frame_rate']
+    numerator, denominator = map(int, avg_frame_rate.split('/'))
+    if denominator != 0:  # Prevent division by zero
+        fps = Decimal(numerator) / Decimal(denominator)
+    else:
+        fps = Decimal(0)  # Handle division by zero, if applicable
+    
+    return height, width, fps
+
+def frame_to_timestamp(frame_index: int, frame_rate: Decimal) -> str:
+    # Calculate the time position in seconds
+    time_position_seconds = Decimal(frame_index) / frame_rate
+    
+    # Convert the total seconds into hours, minutes, and seconds
+    hours, remainder = divmod(time_position_seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    
+    # Format the timestamp string
+    timestamp = "{:02}:{:02}:{:06.3f}".format(int(hours), int(minutes), float(seconds))
+    
+    return timestamp
 
 
 def trim_and_crop(input_dir, output_dir, clip_params):
@@ -52,17 +75,30 @@ def trim_and_crop(input_dir, output_dir, clip_params):
         print('Input file %s does not exist, skipping' % (input_filepath))
         return
 
-    h, w = get_h_w(input_filepath)
+    h, w, fps = get_h_w_fps(input_filepath)
+    start_ts = frame_to_timestamp(S + 1, fps)
+    end_ts = frame_to_timestamp(E, fps)
+
     t = int(T / H * h)
     b = int(B / H * h)
     l = int(L / W * w)
     r = int(R / W * w)
-    stream = ffmpeg.input(input_filepath)
-    stream = ffmpeg.trim(stream, start_frame=S, end_frame=E+1)
-    stream = ffmpeg.crop(stream, l, t, r-l, b-t)
+    
+    stream = ffmpeg.input(input_filepath, ss=start_ts, to=end_ts)
+    video = stream.video
+    audio = stream.audio
+    video = ffmpeg.crop(video, l, t, r-l, b-t)
     stream = ffmpeg.output(
-        stream,
+        audio,
+        video,
         output_filepath,
+        **{
+            "c:v": "h264_nvenc",
+            "preset": "slow",
+            "b:v": "0",
+            "cq:v": "24",
+            "rc:v": "vbr",
+        }
     )
     print(stream.get_args())
     ffmpeg.run(stream)
