@@ -42,11 +42,13 @@ def trim_and_crop(input_dir, output_dir, clip_params):
         return
 
     input_filepath = os.path.join(input_dir, video_name)
-    if os.path.exists(input_filepath + '.mp4'):
-        input_filepath += '.mp4'
-    elif os.path.exists(input_filepath + '.mkv'):
-        input_filepath += '.mkv'
-    else:
+
+    for ext in ['.mp4', '.mkv', '.webm']:
+        if os.path.exists(input_filepath + ext):
+            input_filepath += ext
+            break
+
+    if not os.path.exists(input_filepath):
         print('Input file %s does not exist, skipping' % (input_filepath))
         return
 
@@ -61,12 +63,8 @@ def trim_and_crop(input_dir, output_dir, clip_params):
     stream = ffmpeg.output(
         stream,
         output_filepath,
-        c_v="h264_nvenc",  # Video codec
-        preset="slow",  # Encoder preset
-        b_v="0",  # Bitrate
-        cq_v="24",  # Constant Quality setting
-        rc_v="vbr",  # Rate control method
     )
+    print(stream.get_args())
     ffmpeg.run(stream)
 
 
