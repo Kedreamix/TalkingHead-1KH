@@ -4,7 +4,7 @@ import os
 from functools import partial
 from time import time as timer
 
-from pytube import YouTube
+import subprocess
 from tqdm import tqdm
 
 parser = argparse.ArgumentParser()
@@ -19,15 +19,25 @@ args = parser.parse_args()
 
 def download_video(output_dir, video_id):
     r"""Download video."""
-    video_path = '%s/%s.mp4' % (output_dir, video_id)
+    video_path = os.path.join(output_dir, video_id)
     if not os.path.isfile(video_path):
         try:
             # Download the highest quality mp4 stream.
-            yt = YouTube('https://www.youtube.com/watch?v=%s' % (video_id))
-            stream = yt.streams.filter(subtype='mp4', only_video=True, adaptive=True).first()
-            if stream is None:
-                stream = yt.streams.filter(subtype='mp4').first()
-            stream.download(output_path=output_dir, filename=video_id + '.mp4')
+            # yt = YouTube('https://www.youtube.com/watch?v=%s' % (video_id))
+            # stream = yt.streams.filter(subtype='mp4', only_video=True, adaptive=True).first()
+            # if stream is None:
+            #     stream = yt.streams.filter(subtype='mp4').first()
+            # stream.download(output_path=output_dir, filename=video_id + '.mp4')
+            command = [
+                "yt-dlp",
+                "https://youtube.com/watch?v={}".format(video_id), "--quiet", "-f",
+                "bestvideo*+bestaudio",
+                "--output", video_path,
+                "--no-continue"
+            ]
+            return_code = subprocess.call(command)
+            success = return_code == 0
+
         except Exception as e:
             print(e)
             print('Failed to download %s' % (video_id))

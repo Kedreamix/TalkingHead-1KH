@@ -1,4 +1,3 @@
 ffmpeg-python
 imageio
-git+https://github.com/nficano/pytube
 tqdm
