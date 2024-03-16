@@ -9,6 +9,7 @@ import os
 from functools import partial
 from time import time as timer
 
+import subprocess
 import ffmpeg
 from tqdm import tqdm
 from subprocess import Popen, PIPE
@@ -80,6 +81,10 @@ def trim_and_crop(input_dir, output_dir, clip_params):
     start_ts = frame_to_timestamp(S + 1, fps)
     end_ts = frame_to_timestamp(E, fps)
 
+    if (E - S) / fps < 6:
+        print('Clip under 6 seconds, skipping:', output_filename)
+        return
+
     t = int(T / H * h)
     b = int(B / H * h)
     l = int(L / W * w)
@@ -101,7 +106,12 @@ def trim_and_crop(input_dir, output_dir, clip_params):
             "rc:v": "vbr",
         }
     )
-    ffmpeg.run(stream, quiet=True)
+    args = stream.get_args()
+    command = ["ffmpeg", "-loglevel", "quiet"] + args
+    return_code = subprocess.call(command)
+    success = return_code == 0
+    if not success:
+        print('Command failed:', command)
 
 
 if __name__ == '__main__':
