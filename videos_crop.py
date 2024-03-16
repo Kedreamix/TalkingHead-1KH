@@ -4,6 +4,7 @@
 
 import argparse
 import multiprocessing as mp
+from multiprocessing import get_context
 import os
 from functools import partial
 from time import time as timer
@@ -100,8 +101,7 @@ def trim_and_crop(input_dir, output_dir, clip_params):
             "rc:v": "vbr",
         }
     )
-    print(stream.get_args())
-    ffmpeg.run(stream)
+    ffmpeg.run(stream, quiet=True)
 
 
 if __name__ == '__main__':
@@ -120,6 +120,6 @@ if __name__ == '__main__':
     start = timer()
     pool_size = args.num_workers
     print('Using pool size of %d' % (pool_size))
-    with mp.Pool(processes=pool_size) as p:
+    with get_context("spawn").Pool(processes=pool_size) as p:
         _ = list(tqdm(p.imap_unordered(downloader, clip_info), total=len(clip_info)))
     print('Elapsed time: %.2f' % (timer() - start))
