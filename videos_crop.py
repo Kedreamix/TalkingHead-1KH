@@ -14,6 +14,7 @@ import ffmpeg
 from tqdm import tqdm
 from subprocess import Popen, PIPE
 from decimal import Decimal, DivisionByZero
+import functools
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--input_dir', type=str, required=True,
@@ -26,7 +27,7 @@ parser.add_argument('--num_workers', type=int, default=8,
                     help='How many multiprocessing workers?')
 args = parser.parse_args()
 
-
+@functools.lru_cache(maxsize=2048)
 def get_h_w_fps(filepath):
     probe = ffmpeg.probe(filepath)
     video_stream = next((stream for stream in probe['streams'] if stream['codec_type'] == 'video'), None)
