@@ -15,6 +15,7 @@ from tqdm import tqdm
 from subprocess import Popen, PIPE
 from decimal import Decimal, DivisionByZero
 import functools
+from collections import defaultdict
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--input_dir', type=str, required=True,
@@ -58,9 +59,13 @@ def frame_to_timestamp(frame_index: int, frame_rate: Decimal) -> str:
     return timestamp
 
 
-def trim_and_crop(input_dir, output_dir, clip_params):
+def parse_clip_params(clip_params):
     video_name, H, W, S, E, L, T, R, B = clip_params.strip().split(',')
     H, W, S, E, L, T, R, B = int(H), int(W), int(S), int(E), int(L), int(T), int(R), int(B)
+    return video_name, H, W, S, E, L, T, R, B
+
+def trim_and_crop(input_dir, output_dir, clip_params):
+    video_name, H, W, S, E, L, T, R, B = parse_clip_params(clip_params)
     output_filename = '{}_S{}_E{}_L{}_T{}_R{}_B{}.mp4'.format(video_name, S, E, L, T, R, B)
     output_filepath = os.path.join(output_dir, output_filename)
     if os.path.exists(output_filepath):
@@ -82,8 +87,8 @@ def trim_and_crop(input_dir, output_dir, clip_params):
     start_ts = frame_to_timestamp(S + 1, fps)
     end_ts = frame_to_timestamp(E, fps)
 
-    if (E - S) / fps < 6:
-        print('Clip under 6 seconds, skipping:', output_filename)
+    if (E - S) / fps < 4:
+        print('Clip under 4 seconds, skipping:', output_filename)
         return
 
     t = int(T / H * h)
@@ -117,10 +122,24 @@ def trim_and_crop(input_dir, output_dir, clip_params):
 
 if __name__ == '__main__':
     # Read list of videos.
-    clip_info = []
+    clip_info_by_video = defaultdict(list)
     with open(args.clip_info_file) as fin:
         for line in fin:
-            clip_info.append(line.strip())
+            video_name = parse_clip_params(line.strip())[0]
+            clip_info_by_video[video_name].append(line.strip())
+    
+    # only include longest 4 clips (by E - S) for each video
+    clip_info = []
+
+    for video_name, clip_info_list in clip_info_by_video.items():
+        def get_length_in_frames(clip_params):
+            _, _, _, S, E, _, _, _, _ = parse_clip_params(clip_params)
+            return E - S
+
+        clip_info_list.sort(key=lambda x: get_length_in_frames(x), reverse=True)
+        clip_info.extend(clip_info_list[:4])
+
+    print('Total clips:', len(clip_info))
 
     # Create output folder.
     os.makedirs(args.output_dir, exist_ok=True)
