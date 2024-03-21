@@ -2,3 +2,5 @@ data/
 .DS_Store
 data_list/
 .venv
+*/*clips*
+*/raw_videos

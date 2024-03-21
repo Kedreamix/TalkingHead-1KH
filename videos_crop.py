@@ -100,6 +100,7 @@ def trim_and_crop(input_dir, output_dir, clip_params):
     video = stream.video
     audio = stream.audio
     video = ffmpeg.crop(video, l, t, r-l, b-t)
+    video = ffmpeg.filter(video, 'fps', fps=25, round='up')
     stream = ffmpeg.output(
         audio,
         video,
@@ -125,10 +126,10 @@ if __name__ == '__main__':
     clip_info_by_video = defaultdict(list)
     with open(args.clip_info_file) as fin:
         for line in fin:
-            video_name = parse_clip_params(line.strip())[0]
+            video_name = parse_clip_params(line.strip())[0].split("_")[0]
             clip_info_by_video[video_name].append(line.strip())
     
-    # only include longest 4 clips (by E - S) for each video
+    # only include longest 6 clips (by E - S) for each video
     clip_info = []
 
     for video_name, clip_info_list in clip_info_by_video.items():
@@ -137,7 +138,7 @@ if __name__ == '__main__':
             return E - S
 
         clip_info_list.sort(key=lambda x: get_length_in_frames(x), reverse=True)
-        clip_info.extend(clip_info_list[:4])
+        clip_info.extend(clip_info_list[:6])
 
     print('Total clips:', len(clip_info))
 
